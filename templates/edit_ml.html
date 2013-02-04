@@ -13,8 +13,8 @@
                {% endblock %}
   
   {% block nav %}
-	  <li><a href="{{prefix}}">Accueil</a></li>
-    <li class="active"><a href="/newsletter">NewsLetter</a></li>
+      <li><a href="/">Accueil</a></li>
+    <li class="active"><a href="/newsletter/">NewsLetter</a></li>
 	  <li class="divider-vertical"></li>
     <li><a id="send_nl_btn" href="#">Envoyer</a></li>
     <li><a id="template_chooser_btn" href="#">Template</a></li>
@@ -39,6 +39,27 @@
     var socket = io.connect(document.URL),
       ml_container = $("#ml_container"),
       messageContainer = $('#nlModal'), message;
+    
+    
+    /**
+     * Opens an editor for template
+     */
+    function templateEditor(tpl, callback) {
+      messageContainer.modal("hide");
+      messageContainer.css({
+        "width":"80%",
+        "left": "30%",
+        "height": "600px"
+      });
+      message.empty().append('<div id="ace_editor">Preparing the editor</div>');
+      var editor = ace.edit(message.find("#ace_editor")[0]);
+      editor.setTheme("ace/theme/eclipse");
+      editor.getSession().setMode("ace/mode/html");
+      editor.setValue(tpl.source );
+      callback(editor); // do whatever you want with the editor
+      messageContainer.modal("show");
+    }
+    
     // Defines a message container modal
     if (messageContainer.length === 0) {
       messageContainer = jq('<div class="modal hide fade" id="nlModal">\
@@ -85,7 +106,8 @@
     socket.on("TemplatesList", function(templates) {
       messageContainer.css({
               "width":"50%",
-              "left": "50%"
+              "left": "50%",
+              "height": ""
             }).find("h3").empty().append("Choisissez un template");
       var list = $('<ul style="list-style-type:none">');
       message.empty()
@@ -94,37 +116,45 @@
         .append(list);
       templates.forEach(function(tpl,index) {
         var tplModifyButton = $('<a href="#" class="btn btn-small">Modifier</a>');
-        tplModifyButton.click(function(){ //  works with 1 template, probably hazardous with more...
-          messageContainer.modal("hide");
-          messageContainer.css({
-            "width":"80%",
-            "left": "30%"
+        tplModifyButton.data("tpl", tpl);
+        /**
+         * Handler for template ModifyButton.
+         * Onclick shows the template editor and bind save events button
+         * 
+         */
+        tplModifyButton.click(function(event){ //  works with 1 template, probably hazardous with more...
+          var $this = $(this);
+          templateEditor($this.data("tpl"), function(editor){
+            var tplSendChanges = $('<a href="#" class="btn">Sauvegarder</a>');
+            tplSendChanges.click(function(e){
+              var newTpl = $this.data("tpl");
+              messageContainer.modal("hide");
+              newTpl.source = editor.getValue();
+              $this.data("tpl",newTpl);
+              socket.emit("saveTemplate",newTpl);
+            });
+            messageContainer.find("h3").empty().append("Modification du template " + tpl.name ).append(tplSendChanges);
           });
-          message.empty().append('<div id="ace_editor">Preparing the editor</div>');
-          var editor = ace.edit(message.find("#ace_editor")[0]);
-          editor.setTheme("ace/theme/eclipse");
-          editor.getSession().setMode("ace/mode/html");
-          editor.setValue(tpl.source );
-          var tplSendChanges = $('<a href="#" class="btn">Sauvegarder</a>');
-          tplSendChanges.click(function(){
-            messageContainer.modal("hide");
-            tpl.source = editor.getValue();
-            socket.emit("saveTemplate",tpl);
-          });
-          messageContainer.find("h3").empty().append("Modification du template " + tpl.name ).append(tplSendChanges);
-          messageContainer.modal("show");
         });
         list.append('<li><input type="radio" name="template" value="'+ index +'">&nbsp;'+ tpl.name +' </li>');
         
         list.find("li").filter(":last").append(tplModifyButton);
       });
-      var validButton = $('<a class="btn" href="#">Valider</a>')
-      message.append(validButton);
+      var validButton = $('<a class="btn" href="#">Valider</a>'),
+          newTemplateButton = $('<a class="btn" href="#">Nouveau</a>')
+      message.append(validButton).append(newTemplateButton);
       validButton.click(function(){
         Aloha.jQuery('.editable').mahalo();
         ml_container.empty().append(templates[message.find("input:checked").val()].source);
         messageContainer.modal("hide");
         Aloha.jQuery('.editable').aloha();
+      });
+      newTemplateButton.click(function(){
+        templateEditor({name:"new template", "source": ""}, function(editor){
+          var tplSendChanges = $('<a href="#" class="btn">Sauvegarder</a>');
+            tplSendChanges.click(function(e){});
+          messageContainer.find("h3").empty().append('Nouveau template : <input type="text" value="Nouveau template"/>' ).append(tplSendChanges);
+        });
       });
       messageContainer.modal("show",{});
     });
@@ -156,6 +186,7 @@
 <link href="http://cdn.aloha-editor.org/latest/css/aloha.css" rel="stylesheet" type="text/css" />
   
 <script>
+if (Aloha !== undefined) {
   Aloha.ready(function() {
     var $ = Aloha.jQuery;
     $('.editable').aloha();
@@ -166,6 +197,7 @@
       //});
     //});
   });
+}
 </script>
 
 {% endblock %}
