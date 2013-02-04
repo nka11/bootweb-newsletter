@@ -1,0 +1,171 @@
+{% extends 'layout.html' %}
+
+{% block head %}
+<!-- load the jQuery and require.js libraries -->
+<style>
+  #ace_editor {
+        position: relative;
+        width: 100%;
+        height: 400px;
+    }
+</style>
+
+               {% endblock %}
+  
+  {% block nav %}
+	  <li><a href="{{prefix}}">Accueil</a></li>
+    <li class="active"><a href="/newsletter">NewsLetter</a></li>
+	  <li class="divider-vertical"></li>
+    <li><a id="send_nl_btn" href="#">Envoyer</a></li>
+    <li><a id="template_chooser_btn" href="#">Template</a></li>
+  {% endblock %}
+  
+{% block content %}
+<div id="ml_container">
+ 	{% include 'mails/newsletter.html' %}
+</div>
+{% endblock %}
+
+{% block footer %}
+{% endblock %}
+{%block bottomScripts %}
+<script src="/deps/bootstrap/js/jquery.js"></script>
+<script src="/deps/bootstrap/js/bootstrap-modal.js"></script>
+<script src="/socket.io/socket.io.js"></script>
+<script src="http://d1n0x3qji82z53.cloudfront.net/src-min-noconflict/ace.js" type="text/javascript" charset="utf-8"></script>
+<script>
+  var jq = $.noConflict(true);
+  (function($){
+    var socket = io.connect(document.URL),
+      ml_container = $("#ml_container"),
+      messageContainer = $('#nlModal'), message;
+    // Defines a message container modal
+    if (messageContainer.length === 0) {
+      messageContainer = jq('<div class="modal hide fade" id="nlModal">\
+                    <div class="modal-header">\
+                      <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>\
+                      <h3>Information</h3>\
+                    </div>\
+                    <div class="modal-body">\
+                    </div>\
+                  </div>');
+      $("body").append(messageContainer);
+    }
+    message = messageContainer.find(".modal-body");
+    /**
+     * Handles server event notifying sent mail message
+     */
+    socket.on("sentNL", function(err){
+      console.log(arguments);
+      if (err === null) {
+        messageContainer.css({
+              "width":"50%",
+              "left": "50%",
+              "height": "600px"
+            }).find("h3").empty().append("Delivery information");
+        message.empty().append("Newsletter sent to your email");
+        messageContainer.modal("show",{});
+      } else {
+        messageContainer.find("h3").empty().append("Delivery information");
+        message.empty().append("An error occured");
+        messageContainer.modal("show",{});
+      }
+    });
+    /**
+     * Handles ui event click on send email button
+     */
+    $("#send_nl_btn ").click(function() {
+      socket.emit("sendNl", {
+        emailBody: $('#ml_container').html()
+      });
+    });
+    /**
+     * Handles server event sending templates list
+     */
+    socket.on("TemplatesList", function(templates) {
+      messageContainer.css({
+              "width":"50%",
+              "left": "50%"
+            }).find("h3").empty().append("Choisissez un template");
+      var list = $('<ul style="list-style-type:none">');
+      message.empty()
+        .append("<p>Cette action réinitialisera le contenu actuel</p>")
+        .append("<p>Liste des templates disponibles :</p>")
+        .append(list);
+      templates.forEach(function(tpl,index) {
+        var tplModifyButton = $('<a href="#" class="btn btn-small">Modifier</a>');
+        tplModifyButton.click(function(){ //  works with 1 template, probably hazardous with more...
+          messageContainer.modal("hide");
+          messageContainer.css({
+            "width":"80%",
+            "left": "30%"
+          });
+          message.empty().append('<div id="ace_editor">Preparing the editor</div>');
+          var editor = ace.edit(message.find("#ace_editor")[0]);
+          editor.setTheme("ace/theme/eclipse");
+          editor.getSession().setMode("ace/mode/html");
+          editor.setValue(tpl.source );
+          var tplSendChanges = $('<a href="#" class="btn">Sauvegarder</a>');
+          tplSendChanges.click(function(){
+            messageContainer.modal("hide");
+            tpl.source = editor.getValue();
+            socket.emit("saveTemplate",tpl);
+          });
+          messageContainer.find("h3").empty().append("Modification du template " + tpl.name ).append(tplSendChanges);
+          messageContainer.modal("show");
+        });
+        list.append('<li><input type="radio" name="template" value="'+ index +'">&nbsp;'+ tpl.name +' </li>');
+        
+        list.find("li").filter(":last").append(tplModifyButton);
+      });
+      var validButton = $('<a class="btn" href="#">Valider</a>')
+      message.append(validButton);
+      validButton.click(function(){
+        Aloha.jQuery('.editable').mahalo();
+        ml_container.empty().append(templates[message.find("input:checked").val()].source);
+        messageContainer.modal("hide");
+        Aloha.jQuery('.editable').aloha();
+      });
+      messageContainer.modal("show",{});
+    });
+    /**
+     * UI event when clicking choose template button
+     */
+    $("#template_chooser_btn").click(function(){
+      
+      socket.emit("getTemplates");
+    });
+  })(jq);
+  
+  </script>
+<script type="text/javascript" src="http://cdn.aloha-editor.org/latest/lib/require.js"></script>
+<!--
+-->
+<script type="text/javascript" src="http://cdn.aloha-editor.org/latest/lib/vendor/jquery-1.7.2.js"></script>
+
+<!-- load the Aloha Editor core and some plugins -->
+<script src="http://cdn.aloha-editor.org/latest/lib/aloha.js"
+                   data-aloha-plugins="common/ui,
+                                        common/format,
+                                        common/list,
+                                        common/link,
+                                        common/highlighteditables">
+</script>
+
+<!-- load the Aloha Editor CSS styles -->
+<link href="http://cdn.aloha-editor.org/latest/css/aloha.css" rel="stylesheet" type="text/css" />
+  
+<script>
+  Aloha.ready(function() {
+    var $ = Aloha.jQuery;
+    $('.editable').aloha();
+    //$("#send_nl_btn").click(function() {
+      //$('.editable').mahalo();
+      //socket.emit("UsersList", {
+      //  emailBody: $('#ml_container').html()
+      //});
+    //});
+  });
+</script>
+
+{% endblock %}

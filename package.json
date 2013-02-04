@@ -1,0 +1,21 @@
+{ "name" : "bootweb-newsletter",
+  "main" : "./newsletter.js",
+  "version": "0.0.1-beta",
+  "description": "bootweb app module for newsletter managment",
+  "keywords": ["bootweb", "newsletter", "community managment"],
+  "contributors": [
+      { "name": "Nicolas Karageuzian", "email": "nico@karageuzian.com" }
+    ],
+    "homepage": "https://github.com/nka11/bootweb-newsletter",
+    "bugs":{
+    "url" : "https://github.com/nka11/bootweb-newsletter/issues",
+    "email" : "apso@menestrel.net"
+    },
+    "repository" :
+  { "type" : "git"
+  , "url" : "https://github.com/nka11/bootweb-newsletter.git"
+  },
+  "dependencies" :
+    { "bootweb" : "git+https://github.com/nka11/bootweb.git"
+    }
+}
